@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>易闻查词 · 小红书违禁词工作台</title>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --red: #FF2442; --bg: #FFF9F8; --ink: #1F1A1B;
+  }
+  html, body { height: 100%; }
+  body {
+    font-family: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", system-ui, -apple-system, sans-serif;
+    background: var(--bg); color: var(--ink); -webkit-font-smoothing: antialiased;
+  }
+  ::selection { background: #FFD3DA; }
+  ::-webkit-scrollbar { width: 9px; height: 9px; }
+  ::-webkit-scrollbar-thumb { background: #E3D7D9; border-radius: 9px; border: 2px solid #FFF9F8; }
+  ::-webkit-scrollbar-thumb:hover { background: #D2C2C5; }
+  textarea, input { font-family: inherit; }
+  button { font-family: inherit; }
+  @keyframes fadeUp { from { transform: translateY(8px); } to { transform: none; } }
+  .fadein { animation: fadeUp .32s cubic-bezier(.2,.7,.3,1); }
+  @media (prefers-reduced-motion: reduce) { .fadein { animation: none; } }
+</style>
+<script>
+  // —— 全局主题 ——
+  window.T = {
+    red: '#FF2442', redDark: '#E11D36', redSoft: '#FFEEF0',
+    bg: '#FFF9F8', card: '#FFFFFF', ink: '#1F1A1B', sub: '#9A9092', line: '#F0E7E8',
+    LV: {
+      ban:  { key: 'ban',  label: '禁用',      short: '禁', color: '#FB2C44', bg: '#FFEEF0', line: '#FB2C44', text: '#C81E2E', hint: '直接限流/处罚' },
+      high: { key: 'high', label: '高危',      short: '危', color: '#FB7A1E', bg: '#FFF2E6', line: '#FB7A1E', text: '#C15A10', hint: '高概率限流' },
+      warn: { key: 'warn', label: '提醒',      short: '提', color: '#E0A100', bg: '#FFF8E0', line: '#E8AE00', text: '#937100', hint: '营销话术建议改' },
+      qual: { key: 'qual', label: '需资质',     short: '资', color: '#2E7CF6', bg: '#EAF1FE', line: '#2E7CF6', text: '#1C5BC4', hint: '持证可用' },
+    },
+  };
+</script>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel" src="app/data.jsx"></script>
+<script type="text/babel" src="app/engine.jsx"></script>
+<script type="text/babel" src="app/ui.jsx"></script>
+<script type="text/babel" src="app/workspace.jsx"></script>
+<script type="text/babel" src="app/modals.jsx"></script>
+<script type="text/babel" src="app/detect.jsx"></script>
+<script type="text/babel" src="app/screens.jsx"></script>
+
+<script type="text/babel">
+const { useState, useEffect } = React;
+const T = window.T;
+
+const NAV = [
+  { key: 'detect',  label: '检测工作台', icon: '🔍' },
+  { key: 'history', label: '历史复盘',   icon: '🗂️' },
+  { key: 'library', label: '我的词库',   icon: '📚' },
+  { key: 'pricing', label: '会员',       icon: '👑' },
+  { key: 'admin',   label: '词库后台',   icon: '⚙️' },
+];
+
+function loadLS(key, fb) { try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : fb; } catch { return fb; } }
+function saveLS(key, v) { try { localStorage.setItem(key, JSON.stringify(v)); } catch {} }
+
+function App() {
+  const [nav, setNav] = useState(loadLS('yw_nav', 'detect'));
+  const [isVip, setIsVip] = useState(loadLS('yw_vip', false));
+  const [history, setHistory] = useState(loadLS('yw_hist', window.SEED_HISTORY || []));
+  const [customWords, setCustomWords] = useState(loadLS('yw_cw', window.SEED_CUSTOM || []));
+  const [detectState, setDetectState] = useState({
+    title: '', body: '', track: 'auto',
+    enabledCats: Object.keys(window.CATS),
+    selected: null, view: 'list', tab: 'edit', modal: null, toast: null,
+  });
+
+  useEffect(() => saveLS('yw_nav', nav), [nav]);
+  useEffect(() => saveLS('yw_vip', isVip), [isVip]);
+  useEffect(() => saveLS('yw_hist', history), [history]);
+  useEffect(() => { saveLS('yw_cw', customWords); window.resetIndex && window.resetIndex(); }, [customWords]);
+
+  function addHistory(rec) { setHistory((h) => [rec, ...h].slice(0, 50)); }
+
+  function openHistoryItem(rec) {
+    setDetectState((s) => ({ ...s, title: rec.title === '无标题笔记' ? '' : rec.title, body: rec.body,
+      track: rec.track, selected: null, view: 'list', tab: 'result' }));
+    setNav('detect');
+  }
+
+  return (
+    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
+      {/* 顶栏 */}
+      <header style={{ position: 'sticky', top: 0, zIndex: 30, background: 'rgba(255,249,248,.86)',
+        backdropFilter: 'blur(12px)', borderBottom: `1px solid ${T.line}`, padding: '0 26px', height: 62,
+        display: 'flex', alignItems: 'center', gap: 26 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div style={{ width: 30, height: 30, borderRadius: 9, background: T.red, color: '#fff',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, fontWeight: 800,
+            boxShadow: '0 3px 10px rgba(255,36,66,.35)' }}>易</div>
+          <div>
+            <div style={{ fontSize: 16, fontWeight: 800, letterSpacing: .5 }}>易闻查词</div>
+            <div style={{ fontSize: 10, color: T.sub, marginTop: -1 }}>小红书违禁词工作台</div>
+          </div>
+        </div>
+        <nav style={{ display: 'flex', gap: 2 }}>
+          {NAV.map((n) => {
+            const on = nav === n.key;
+            return (
+              <div key={n.key} onClick={() => setNav(n.key)}
+                style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 10, cursor: 'pointer',
+                  fontSize: 14, fontWeight: on ? 800 : 600, color: on ? T.redDark : '#6B6264',
+                  background: on ? T.redSoft : 'transparent' }}>
+                <span style={{ fontSize: 14 }}>{n.icon}</span>{n.label}
+              </div>
+            );
+          })}
+        </nav>
+        <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 12 }}>
+          {isVip
+            ? <span style={{ fontSize: 12.5, fontWeight: 800, color: '#9A6A00', background: 'linear-gradient(90deg,#FFE9A8,#FFD36B)',
+                padding: '6px 13px', borderRadius: 999 }}>👑 年度会员</span>
+            : <window.Btn kind="dark" size="sm" onClick={() => setNav('pricing')}>开通会员</window.Btn>}
+          <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'linear-gradient(135deg,#FFB3BE,#FF7088)' }} />
+        </div>
+      </header>
+
+      {/* 主体 */}
+      <main key={nav} className="fadein" style={{ flex: 1, padding: '20px 26px 60px', maxWidth: 1360, width: '100%', margin: '0 auto' }}>
+        {nav === 'detect' && <window.DetectView state={detectState} set={setDetectState} addHistory={addHistory}
+          customWords={customWords} goPricing={() => setNav('pricing')} />}
+        {nav === 'history' && <window.HistoryView history={history} onOpen={openHistoryItem}
+          onClear={() => setHistory([])} onDelete={(ts) => setHistory((h) => h.filter((r) => r.ts !== ts))} />}
+        {nav === 'library' && <window.LibraryView customWords={customWords} setCustomWords={setCustomWords} isVip={isVip} goPricing={() => setNav('pricing')} />}
+        {nav === 'pricing' && <window.PricingView isVip={isVip} onSubscribe={() => setIsVip(true)} onCancel={() => setIsVip(false)} />}
+        {nav === 'admin' && <window.AdminView />}
+      </main>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>
