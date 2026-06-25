@@ -45,7 +45,7 @@ async function loadLexicon() {
     if (!res.ok) throw new Error('HTTP ' + res.status);
     const data = await res.json();
     if (data && Array.isArray(data.entries) && data.entries.length) {
-      window.LEXICON = data.entries;
+      window.LEXICON = window.hydrateLexicon ? window.hydrateLexicon(data.entries) : data.entries;
       window.LEXICON_META = { version: data.version, updated: data.updated, count: data.entries.length, source: 'remote' };
       window.resetIndex && window.resetIndex();
       return;

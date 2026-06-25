@@ -1,6 +1,6 @@
 {
-  "version": "2026.06.25",
-  "updated": "2026-06-25",
+  "version": "2026.06.26",
+  "updated": "2026-06-26",
   "note": "易闻查词违禁词库 · 结构化数据集。运营在此维护，前端运行时加载，更新无需发版。",
   "schema": ["id","word","aliases","level","cat","tracks","qual_rule","platform","law","clause","why","trackNote","example","fix","source_url","status"],
   "entries": [
@@ -368,6 +368,64 @@
       "trackNote": "全赛道提醒级。真实评价可引用，但不得绝对化。",
       "example": "「零差评清一色好评」属夸大口碑宣传。",
       "fix": ["评价整体不错","回购的人挺多","身边反馈还行"], "source_url": "", "status": "active"
-    }
+    },
+
+    { "id": "ext_011", "word": "最大", "aliases": ["最大化","最大限度"], "level": "ban", "cat": "extreme", "status": "active" },
+    { "id": "ext_012", "word": "最高", "aliases": ["最高级","最高端","最高品质"], "level": "ban", "cat": "extreme", "status": "active" },
+    { "id": "ext_013", "word": "最低", "aliases": ["最低档","史上最低"], "level": "ban", "cat": "extreme", "status": "active" },
+    { "id": "ext_014", "word": "最强", "aliases": ["史上最强","最强王者","最强配置"], "level": "ban", "cat": "extreme", "status": "active" },
+    { "id": "ext_015", "word": "最优", "aliases": ["最优秀","最优质","最优选"], "level": "high", "cat": "extreme", "status": "active" },
+    { "id": "ext_016", "word": "最先进", "aliases": ["最先","最尖端","最前沿"], "level": "ban", "cat": "extreme", "status": "active" },
+    { "id": "ext_017", "word": "最新", "aliases": ["最新科技","最新技术","最新款"], "level": "warn", "cat": "extreme", "status": "active" },
+    { "id": "ext_018", "word": "最值得", "aliases": ["最值得买","最值得入手"], "level": "high", "cat": "extreme", "status": "active" },
+    { "id": "ext_019", "word": "全国第一", "aliases": ["全国第1","全国销量第一"], "level": "ban", "cat": "extreme", "status": "active" },
+    { "id": "ext_020", "word": "世界第一", "aliases": ["全球第一","世界第1","世界顶尖"], "level": "ban", "cat": "extreme", "status": "active" },
+    { "id": "ext_021", "word": "中国第一", "aliases": ["华人第一"], "level": "ban", "cat": "extreme", "status": "active" },
+    { "id": "ext_022", "word": "行业第一", "aliases": ["品类第一","类目第一","品牌第一"], "level": "ban", "cat": "extreme", "status": "active" },
+    { "id": "ext_023", "word": "独家", "aliases": ["独家配方","独家秘方","独家技术"], "level": "high", "cat": "extreme", "status": "active" },
+    { "id": "ext_024", "word": "前所未有", "aliases": ["史无前例","空前绝后","前无古人"], "level": "high", "cat": "extreme", "status": "active" },
+    { "id": "ext_025", "word": "万能", "aliases": ["无所不能","样样精通","包打天下"], "level": "high", "cat": "extreme", "status": "active" },
+    { "id": "ext_026", "word": "永久", "aliases": ["永久有效","终身","一劳永逸","永不"], "level": "ban", "cat": "extreme", "status": "active" },
+    { "id": "ext_027", "word": "无敌", "aliases": ["无与伦比","无可比拟"], "level": "warn", "cat": "extreme", "status": "active" },
+    { "id": "ext_028", "word": "领先", "aliases": ["行业领先","领导品牌","领军品牌","领跑者"], "level": "high", "cat": "extreme", "status": "active" },
+    { "id": "ext_029", "word": "王者", "aliases": ["王者级","称霸","霸主"], "level": "warn", "cat": "extreme", "status": "active" },
+    { "id": "ext_030", "word": "巅峰", "aliases": ["巅峰之作","登峰"], "level": "high", "cat": "extreme", "status": "active" },
+    { "id": "ext_031", "word": "钜惠", "aliases": ["巨惠","特大优惠"], "level": "warn", "cat": "extreme", "status": "active" },
+
+    { "id": "med_008", "word": "祛痘", "aliases": ["去痘","清痘","战痘","痘痘消失"], "level": "high", "cat": "medical", "status": "active" },
+    { "id": "med_009", "word": "去黑头", "aliases": ["清除黑头","根除黑头"], "level": "warn", "cat": "medical", "status": "active" },
+    { "id": "med_010", "word": "收缩毛孔", "aliases": ["毛孔隐形","毛孔消失","细致毛孔"], "level": "warn", "cat": "medical", "status": "active" },
+    { "id": "med_011", "word": "淡化黑眼圈", "aliases": ["去黑眼圈","消除黑眼圈","去眼袋"], "level": "high", "cat": "medical", "status": "active" },
+    { "id": "med_012", "word": "瘦脸", "aliases": ["小脸","V脸","瘦脸针"], "level": "high", "cat": "medical", "status": "active" },
+    { "id": "med_013", "word": "抗衰老", "aliases": ["逆龄","驻颜","冻龄","逆生长","返老还童"], "level": "high", "cat": "medical", "status": "active" },
+    { "id": "med_014", "word": "提高免疫力", "aliases": ["增强免疫","提升免疫力","增强抵抗力"], "level": "high", "cat": "medical", "status": "active" },
+    { "id": "med_015", "word": "抗癌", "aliases": ["防癌","抗肿瘤","杀死癌细胞"], "level": "ban", "cat": "medical", "status": "active" },
+    { "id": "med_016", "word": "助眠", "aliases": ["改善睡眠","治疗失眠","告别失眠"], "level": "high", "cat": "medical", "status": "active" },
+    { "id": "med_017", "word": "补脑", "aliases": ["健脑","益智","提高记忆力"], "level": "high", "cat": "medical", "status": "active" },
+    { "id": "med_018", "word": "壮阳", "aliases": ["补肾壮阳","延时","增大增粗"], "level": "ban", "cat": "medical", "status": "active" },
+    { "id": "med_019", "word": "降三高", "aliases": ["降血压","降血糖","降血脂"], "level": "ban", "cat": "medical", "status": "active" },
+
+    { "id": "spc_006", "word": "烫发", "aliases": ["卷发定型","持久卷"], "level": "qual", "cat": "special", "qual_rule": "烫发产品属特殊化妆品，须持特殊化妆品注册证（国妆特字）。", "status": "active" },
+    { "id": "spc_007", "word": "健美", "aliases": ["健美霜"], "level": "qual", "cat": "special", "qual_rule": "原健美类宣称按特殊化妆品/相应资质判定，普通产品慎用。", "status": "active" },
+    { "id": "spc_008", "word": "除臭", "aliases": ["止汗","止汗露","去狐臭"], "level": "qual", "cat": "special", "qual_rule": "止汗除臭类按特殊用途/相应资质判定，宣称前请核对产品资质。", "status": "active" },
+    { "id": "spc_009", "word": "美乳", "aliases": ["丰胸","丰乳","挺拔坚挺"], "level": "qual", "cat": "special", "qual_rule": "美乳/丰胸宣称涉医疗与特殊用途，普通化妆品不得宣称。", "status": "active" },
+
+    { "id": "div_006", "word": "QQ", "aliases": ["扣扣","企鹅号"], "level": "high", "cat": "divert", "status": "active" },
+    { "id": "div_007", "word": "电话", "aliases": ["手机号","联系电话","致电","拨打"], "level": "high", "cat": "divert", "status": "active" },
+    { "id": "div_008", "word": "公众号", "aliases": ["关注公众号","gzh"], "level": "high", "cat": "divert", "status": "active" },
+    { "id": "div_009", "word": "官网", "aliases": ["官方网站","登录官网","官网购买"], "level": "high", "cat": "divert", "status": "active" },
+    { "id": "div_010", "word": "微店", "aliases": ["有赞","微商城"], "level": "high", "cat": "divert", "status": "active" },
+    { "id": "div_011", "word": "闲鱼", "aliases": ["转转","二手平台"], "level": "high", "cat": "divert", "status": "active" },
+    { "id": "div_012", "word": "直播间", "aliases": ["蹲直播","直播下单","直播间见"], "level": "warn", "cat": "divert", "status": "active" },
+
+    { "id": "fls_006", "word": "包退包换", "aliases": ["包退","无理由退","假一赔十","假一罚十"], "level": "warn", "cat": "false", "status": "active" },
+    { "id": "fls_007", "word": "无效退款", "aliases": ["无效退","不满意退款","无效全额退"], "level": "high", "cat": "false", "status": "active" },
+    { "id": "fls_008", "word": "不反弹", "aliases": ["永不反弹","绝不反弹","不复发","永不复发"], "level": "high", "cat": "false", "status": "active" },
+    { "id": "fls_009", "word": "彻底解决", "aliases": ["彻底告别","彻底根除","从根源解决","根源解决"], "level": "high", "cat": "false", "status": "active" },
+    { "id": "fls_010", "word": "一抹见效", "aliases": ["一擦即白","一贴见效","立即见效","一秒见效"], "level": "high", "cat": "false", "status": "active" },
+    { "id": "fls_011", "word": "马上抢购", "aliases": ["赶紧下单","立即抢购","抢购","速抢"], "level": "warn", "cat": "false", "status": "active" },
+
+    { "id": "dat_005", "word": "月销百万", "aliases": ["月销十万","日销千单","销量破万"], "level": "warn", "cat": "data", "status": "active" },
+    { "id": "dat_006", "word": "复购率第一", "aliases": ["超高复购","复购率高","复购无数"], "level": "warn", "cat": "data", "status": "active" }
   ]
 }

@@ -1,81 +1,100 @@
 // ============================================================
-// 易闻查词 · 检测内核对抗样本评测
-// 运行：node tests/engine.eval.cjs
-// 目的：证明 YWCore 能穿透小红书常见的「绕审」写法
-//   —— 旧版 text.indexOf() 对这些样本几乎全漏
+// 易闻查词 · 检测内核质量闸门（回归评测）
+// 运行：node tests/engine.eval.cjs   (或 npm run test:engine)
+//
+// 与线上一致：直接加载 public/data/lexicon.json，用 core.js 的
+// buildPatterns + buildAC 构建（与 engine.jsx 同一套逻辑）。
+//
+// 两侧都测：
+//   1) 召回：每个样本词额外自动生成「夹空格 / 夹符号 / emoji 夹字」
+//      对抗变体，全部须命中            —— 阈值 召回 ≥ 98%
+//   2) 误报：干净文案必须 0 命中        —— 阈值 误报文案数 = 0
+// 任一阈值不达标 → 进程以非零退出，作为提交/CI 闸门。
 // ============================================================
 const Core = require('../app/core.js');
+const LEX = require('../public/data/lexicon.json');
 
-// 取若干真实违禁词作为模式（与 app/data.jsx 同口径）
-const WORDS = [
-  '最好', '国家级', '全网最低价', '没有之一',
-  '美白', '祛斑', '防晒',
-  '治疗', '消炎', '堪比医美',
-  '微信', '私信我',
-  '三天见效', '绝对安全', '纯天然',
-  '销量第一', '万人回购',
-];
-const ac = Core.buildAC(WORDS.map((w) => ({ form: Core.normForm(w), w })));
-function hits(text) {
-  return Core.matchText(text, ac).map((h) => h.p.w);
-}
+const ac = Core.buildAC(Core.buildPatterns(LEX.entries));
+function hitWords(text) { return Core.matchText(text, ac).map((h) => h.p.item.word); }
 
-// 评测样本：[原文, 期望命中的词]
-const CASES = [
-  // —— 正常命中 ——
-  ['这是我用过最好的精华', ['最好']],
-  ['国家级实验室配方', ['国家级']],
-  // —— 夹空格 ——
-  ['用过 最 好 的精华', ['最好']],
-  ['加我 微 信 聊', ['微信']],
-  // —— 夹符号 / 连字符 ——
-  ['微-信：abc123', ['微信']],
-  ['全·网·最·低·价', ['全网最低价']],
-  // —— emoji / 特殊字符夹字 ——
-  ['加我微❤信哦', ['微信']],
-  ['三天✨见效真的', ['三天见效']],
-  // —— 全角 / 大小写（ascii 词形）——
-  ['绝对安全无副作用', ['绝对安全']],
-  // —— 多词共存 ——
-  ['美白祛斑一步到位，效果堪比医美', ['美白', '祛斑', '堪比医美']],
-  ['纯天然无添加，销量第一，万人回购', ['纯天然', '销量第一', '万人回购']],
-  // —— 零宽字符夹字（U+200B）——
-  ['治​疗痘痘很有效', ['治疗']],
-  // —— 私信变体（夹字）——
-  ['有需要私 信 我领取', ['私信我']],
-  // —— 干净文本：不应误报 ——
-  ['分享一瓶很喜欢的精华，质地清爽好吸收', []],
+// —— 召回样本：[表面形, 期望命中的主词] ——
+// 表面形可以是主词或别名；命中后引擎返回的是其主词
+const RECALL = [
+  ['最好','最好'],['最佳','最好'],['没有之一','没有之一'],['国家级','国家级'],['世界级','国家级'],
+  ['全网最低价','全网最低价'],['抗老天花板','抗老天花板'],['天花板','抗老天花板'],['首创','首个'],
+  ['最大','最大'],['最高级','最高'],['最新款','最新'],['全国第一','全国第一'],['世界第一','世界第一'],
+  ['中国第一','中国第一'],['行业第一','行业第一'],['独家配方','独家'],['永久','永久'],['一劳永逸','永久'],
+  ['领导品牌','领先'],['前所未有','前所未有'],['万能','万能'],['无敌','无敌'],['王者','王者'],['巅峰','巅峰'],['钜惠','钜惠'],
+  ['治疗','治疗'],['根治','治疗'],['消炎','消炎'],['杀菌','消炎'],['修复疤痕','修复疤痕'],['祛疤','修复疤痕'],
+  ['堪比医美','堪比医美'],['药妆','堪比医美'],['抗过敏','抗过敏'],['减肥','减肥'],['排毒','减肥'],
+  ['祛痘','祛痘'],['抗衰老','抗衰老'],['逆龄','抗衰老'],['提高免疫力','提高免疫力'],['抗癌','抗癌'],['防癌','抗癌'],
+  ['壮阳','壮阳'],['降血糖','降三高'],['助眠','助眠'],['补脑','补脑'],['淡化黑眼圈','淡化黑眼圈'],['瘦脸','瘦脸'],
+  ['美白','美白'],['亮白','美白'],['祛斑','祛斑'],['防晒','防晒'],['防脱生发','防脱生发'],['生发','防脱生发'],
+  ['染发','染发'],['脱毛','脱毛'],['烫发','烫发'],['除臭','除臭'],['丰胸','美乳'],['美乳','美乳'],
+  ['微信','微信'],['加我V','微信'],['vx','微信'],['私信我','私信我'],['加群','加群'],['淘宝','淘宝'],['某宝','淘宝'],
+  ['优惠券','优惠券'],['QQ','QQ'],['电话','电话'],['公众号','公众号'],['官网','官网'],['微店','微店'],['闲鱼','闲鱼'],['直播间','直播间'],
+  ['三天见效','三天见效'],['立竿见影','三天见效'],['绝对安全','绝对安全'],['纯天然','纯天然'],['手慢无','手慢无'],['免费领','免费领'],
+  ['包退包换','包退包换'],['假一赔十','包退包换'],['无效退款','无效退款'],['不反弹','不反弹'],['永不反弹','不反弹'],
+  ['彻底解决','彻底解决'],['彻底根除','彻底解决'],['一抹见效','一抹见效'],['马上抢购','马上抢购'],
+  ['销量第一','销量第一'],['万人回购','万人回购'],['100%有效','100%有效'],['好评如潮','好评如潮'],['月销百万','月销百万'],['复购率高','复购率第一'],
 ];
 
-let pass = 0, fail = 0;
-const fails = [];
-for (const [text, expect] of CASES) {
-  const got = hits(text);
-  const gotSet = new Set(got);
-  const missing = expect.filter((w) => !gotSet.has(w));
-  const extra = got.filter((w) => !expect.includes(w));
-  const ok = missing.length === 0 && extra.length === 0;
-  if (ok) { pass++; }
-  else { fail++; fails.push({ text, expect, got, missing, extra }); }
+// —— 对抗注入：在每个字之间插入噪声字符 ——
+const INJ = [' ', '-', '✨'];
+function inject(s, ch) { return s.split('').join(ch); }
+
+// —— 误报样本：干净文案，必须 0 命中 ——
+// 刻意混入 最近/最后/显白 等「形近但合法」的诱饵
+const CLEAN = [
+  '分享一瓶很喜欢的精华，质地清爽好吸收，上脸温和不刺激',
+  '这件毛衣版型好看，颜色也很耐看，秋天穿刚刚好',
+  '周末去咖啡店坐了一下午，环境安静，拍照氛围感不错',
+  '记录今天的早餐，燕麦配水果，简单又舒服',
+  '口红颜色显白，日常通勤完全可以，质地也滋润',
+  '最近用的护肤品都挺温和，敏感肌也没什么负担',
+  '这双鞋走起来很轻，逛街一天脚也不累',
+  '换了个发型整个人清爽了不少，打理起来也方便',
+  '这本书读起来很顺，睡前看几页很解压',
+  '新买的杯子手感不错，容量也合适，颜值在线',
+];
+
+let recallTotal = 0, recallHit = 0;
+const recallMiss = [];
+for (const [form, word] of RECALL) {
+  const surfaces = [`啦${form}哦`, ...INJ.map((ch) => `啦${inject(form, ch)}哦`)];
+  for (const s of surfaces) {
+    recallTotal++;
+    if (hitWords(s).includes(word)) recallHit++;
+    else recallMiss.push(`${word} ⟸ "${s}"`);
+  }
 }
 
-const recallTotal = CASES.reduce((a, c) => a + c[1].length, 0);
-const recallHit = CASES.reduce((a, c) => {
-  const g = new Set(hits(c[0]));
-  return a + c[1].filter((w) => g.has(w)).length;
-}, 0);
-
-console.log('— 易闻查词 · 抗对抗检测评测 —');
-console.log(`用例：${pass}/${CASES.length} 通过`);
-console.log(`词级召回：${recallHit}/${recallTotal} = ${((recallHit / recallTotal) * 100).toFixed(1)}%`);
-if (fails.length) {
-  console.log('\n未通过用例：');
-  fails.forEach((f) => {
-    console.log(`  文本: ${f.text}`);
-    if (f.missing.length) console.log(`    漏检: ${f.missing.join('、')}`);
-    if (f.extra.length) console.log(`    误报: ${f.extra.join('、')}`);
-  });
-  process.exit(1);
-} else {
-  console.log('\n全部通过 ✓');
+let fpCount = 0;
+const fpDetail = [];
+for (const text of CLEAN) {
+  const hits = hitWords(text);
+  if (hits.length) { fpCount++; fpDetail.push(`"${text}" → 误报: ${hits.join('、')}`); }
 }
+
+const recall = recallHit / recallTotal;
+const RECALL_MIN = 0.98;
+
+console.log('— 易闻查词 · 检测内核质量闸门 —');
+console.log(`词库：v${LEX.version} · ${LEX.entries.length} 主词`);
+console.log(`召回：${recallHit}/${recallTotal} = ${(recall * 100).toFixed(1)}%  (含对抗变体，阈值 ≥ ${RECALL_MIN * 100}%)`);
+console.log(`误报：${CLEAN.length - fpCount}/${CLEAN.length} 干净文案保持洁净  (阈值 误报数 = 0)`);
+
+let failed = false;
+if (recallMiss.length) {
+  console.log(`\n${recall < RECALL_MIN ? '❌' : '⚠️'} 漏检 ${recallMiss.length} 项：`);
+  recallMiss.slice(0, 20).forEach((m) => console.log('  ' + m));
+}
+if (recall < RECALL_MIN) failed = true;
+if (fpCount > 0) {
+  failed = true;
+  console.log(`\n❌ 出现误报 ${fpCount} 处：`);
+  fpDetail.forEach((d) => console.log('  ' + d));
+}
+
+if (failed) { console.log('\n闸门未通过。'); process.exit(1); }
+console.log('\n✓ 闸门通过');

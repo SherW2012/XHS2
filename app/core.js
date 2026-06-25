@@ -138,8 +138,39 @@
     return resolve(hits, idx);
   }
 
+  // ============================================================
+  // 词库 → AC 模式列表（引擎与评测共用，保证行为一致）
+  // items: 词条 [{ word, aliases[], cat, ... }]
+  // 返回 [{ form, item, refId, cat, isAlias }]，form 已归一、去重、
+  // 过短(<2)的 ascii 词形丢弃（避免「➕V→v」这类误报）
+  // ============================================================
+  function buildPatterns(items) {
+    const byForm = new Map(); // 全局按 form 去重，避免同一词形被多个词条重复命中
+    (items || []).forEach((item, idx) => {
+      if (!item || !item.word) return;
+      const wordForm = normForm(item.word);
+      const forms = [item.word].concat(item.aliases || []);
+      const seen = new Set();
+      forms.forEach((raw) => {
+        const form = normForm(raw);
+        if (!form || form.length < 2) return;
+        if (seen.has(form)) return; // 同词条内去重
+        seen.add(form);
+        const isAlias = form !== wordForm;
+        const existing = byForm.get(form);
+        if (existing) {
+          // 冲突时：若已有的是别名、而当前是主词，则用更具体的主词覆盖
+          if (existing.isAlias && !isAlias) byForm.set(form, { form, item, refId: idx, cat: item.cat, isAlias });
+          return;
+        }
+        byForm.set(form, { form, item, refId: idx, cat: item.cat, isAlias });
+      });
+    });
+    return Array.from(byForm.values());
+  }
+
   return {
     normChar, isMeaningful, compact, normForm,
-    buildAC, runAC, resolve, matchText,
+    buildAC, runAC, resolve, matchText, buildPatterns,
   };
 });

@@ -15,24 +15,7 @@ const LEVEL_WEIGHT = { ban: 16, high: 9, warn: 4, qual: 5 };
 // 每个 pattern 携带 meta：item / refId / isAlias / cat
 let _AC = null;
 function buildBuiltinAC() {
-  const patterns = [];
-  (window.LEXICON || []).forEach((item, idx) => {
-    const wordForm = Core.normForm(item.word);
-    const forms = [item.word, ...(item.aliases || [])];
-    const seen = new Set();
-    forms.forEach((raw) => {
-      const form = Core.normForm(raw);
-      // 归一后过短(<2)的 ascii 词形丢弃，避免「➕V→v」这类误报
-      if (!form || form.length < 2) return;
-      if (seen.has(form)) return;
-      seen.add(form);
-      patterns.push({
-        form, item, refId: idx, cat: item.cat,
-        isAlias: form !== wordForm,
-      });
-    });
-  });
-  return Core.buildAC(patterns);
+  return Core.buildAC(Core.buildPatterns(window.LEXICON || []));
 }
 function getAC() {
   if (!_AC) _AC = buildBuiltinAC();
