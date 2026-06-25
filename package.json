@@ -7,6 +7,7 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview --port 4173",
+    "import:lexicon": "node scripts/import-lexicon.mjs",
     "test:engine": "node tests/engine.eval.cjs"
   },
   "dependencies": {
