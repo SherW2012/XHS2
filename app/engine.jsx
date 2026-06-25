@@ -1,114 +1,103 @@
 // ============================================================
 // 易闻查词 · 检测引擎
 // scan(text, track) -> { tokens, matches, score, grade, byLevel }
-// 把文本切成 token 流（命中片段 + 普通片段），并计算合规评分
+// v1：底层换成 YWCore（归一化压缩 + AC 自动机），抗对抗匹配
+//     —— 解决「夹字 / 夹符号 / emoji 夹字 / 全角 / 大小写」漏检
+// 对外契约（tokens / matches.start/end / score / grade …）保持不变
 // ============================================================
+
+const Core = (typeof window !== 'undefined' && window.YWCore) || require('./core.js');
 
 // 等级扣分权重
 const LEVEL_WEIGHT = { ban: 16, high: 9, warn: 4, qual: 5 };
 
-// 赛道豁免：某些"需资质"词在特定赛道若用户已声明持证，可标记为可用
-// 这里仅用赛道来决定提示语气，不直接放行（机审角度）
-
-// 为每个词条建立「词 + 别名」到词条的索引，长词优先匹配
-function buildIndex() {
-  const entries = [];
+// —— 内置词库 → AC 自动机（缓存，自定义词变更时 resetIndex 重建）——
+// 每个 pattern 携带 meta：item / refId / isAlias / cat
+let _AC = null;
+function buildBuiltinAC() {
+  const patterns = [];
   (window.LEXICON || []).forEach((item, idx) => {
+    const wordForm = Core.normForm(item.word);
     const forms = [item.word, ...(item.aliases || [])];
-    forms.forEach((form) => {
-      entries.push({ form, item, refId: idx, isAlias: form !== item.word });
+    const seen = new Set();
+    forms.forEach((raw) => {
+      const form = Core.normForm(raw);
+      // 归一后过短(<2)的 ascii 词形丢弃，避免「➕V→v」这类误报
+      if (!form || form.length < 2) return;
+      if (seen.has(form)) return;
+      seen.add(form);
+      patterns.push({
+        form, item, refId: idx, cat: item.cat,
+        isAlias: form !== wordForm,
+      });
     });
   });
-  // 长词优先，避免短词抢占
-  entries.sort((a, b) => b.form.length - a.form.length);
-  return entries;
+  return Core.buildAC(patterns);
 }
-
-let _INDEX = null;
-function getIndex() {
-  if (!_INDEX) _INDEX = buildIndex();
-  return _INDEX;
+function getAC() {
+  if (!_AC) _AC = buildBuiltinAC();
+  return _AC;
 }
-// 自定义词库变更后可重建
-function resetIndex() { _INDEX = null; }
+function resetIndex() { _AC = null; }
 
-// 主扫描函数
+// —— 主扫描 ——
 function scan(text, trackKey, customWords, enabledCats) {
-  const index = getIndex();
+  text = text || '';
   const n = text.length;
-  const covered = new Array(n).fill(false);
-  const rawMatches = [];
   const catOn = (cat) => !enabledCats || enabledCats.includes(cat);
 
-  // 内置词库匹配
-  index.forEach((entry) => {
-    const f = entry.form;
-    if (!f) return;
-    if (!catOn(entry.item.cat)) return;
-    let from = 0;
-    while (true) {
-      const pos = text.indexOf(f, from);
-      if (pos === -1) break;
-      // 不与已覆盖区间重叠
-      let overlap = false;
-      for (let i = pos; i < pos + f.length; i++) if (covered[i]) { overlap = true; break; }
-      if (!overlap) {
-        for (let i = pos; i < pos + f.length; i++) covered[i] = true;
-        rawMatches.push({
-          start: pos, end: pos + f.length, hit: f,
-          item: entry.item, refId: entry.refId, isAlias: entry.isAlias,
-          custom: false,
-        });
-      }
-      from = pos + f.length;
-    }
-  });
+  // 1) 内置词库命中（赛道/分类开关在收集阶段过滤）
+  const builtinHits = Core.matchText(text, getAC(), (p) => catOn(p.cat));
+  const rawMatches = builtinHits.map((h) => ({
+    start: h.start, end: h.end, hit: text.slice(h.start, h.end),
+    item: h.p.item, refId: h.p.refId, isAlias: h.p.isAlias, custom: false,
+  }));
 
-  // 自定义词库匹配（用户自建，统一作为 high/自定义来源）
-  (customWords || []).forEach((cw, ci) => {
-    if (!cw.word) return;
-    let from = 0;
-    while (true) {
-      const pos = text.indexOf(cw.word, from);
-      if (pos === -1) break;
-      let overlap = false;
-      for (let i = pos; i < pos + cw.word.length; i++) if (covered[i]) { overlap = true; break; }
-      if (!overlap) {
-        for (let i = pos; i < pos + cw.word.length; i++) covered[i] = true;
-        rawMatches.push({
-          start: pos, end: pos + cw.word.length, hit: cw.word,
-          custom: true,
-          item: {
-            word: cw.word, level: cw.level || 'warn', cat: 'custom',
-            platform: '自定义词库', law: '我的词库',
-            clause: cw.note || '由你或团队自定义的关注词。',
-            why: cw.note || '该词被你加入了自定义词库，命中后提醒你复核。',
-            trackNote: '自定义规则，不参与平台机审，仅供自查。',
-            example: '—', fix: cw.fix ? [cw.fix] : ['（自定义改写）'],
-          },
-          refId: 'custom-' + ci,
-        });
-      }
-      from = pos + cw.word.length;
-    }
-  });
+  // 2) 自定义词库（量小，按需建 AC，同样抗对抗）
+  const cw = (customWords || []).filter((c) => c.word && Core.normForm(c.word).length >= 2);
+  if (cw.length) {
+    const cwPatterns = cw.map((c, ci) => ({ form: Core.normForm(c.word), cw: c, ci }));
+    const cwAC = Core.buildAC(cwPatterns);
+    const cwHits = Core.matchText(text, cwAC);
+    cwHits.forEach((h) => {
+      const c = h.p.cw;
+      rawMatches.push({
+        start: h.start, end: h.end, hit: text.slice(h.start, h.end), custom: true,
+        item: {
+          word: c.word, level: c.level || 'warn', cat: 'custom',
+          platform: '自定义词库', law: '我的词库',
+          clause: c.note || '由你或团队自定义的关注词。',
+          why: c.note || '该词被你加入了自定义词库，命中后提醒你复核。',
+          trackNote: '自定义规则，不参与平台机审，仅供自查。',
+          example: '—', fix: c.fix ? [c.fix] : ['（自定义改写）'],
+        },
+        refId: 'custom-' + h.p.ci,
+      });
+    });
+  }
 
-  rawMatches.sort((a, b) => a.start - b.start);
+  // 3) 内置 + 自定义混合后再去重（最长优先 / 左优先），避免区间重叠
+  rawMatches.sort((a, b) => (a.start - b.start) || ((b.end - b.start) - (a.end - a.start)));
+  const deduped = [];
+  let lastEnd = -1;
+  for (const m of rawMatches) {
+    if (m.start >= lastEnd) { deduped.push(m); lastEnd = m.end; }
+  }
 
-  // 构造 token 流
+  // 4) 构造 token 流
   const tokens = [];
   let cursor = 0;
-  rawMatches.forEach((m, i) => {
+  deduped.forEach((m, i) => {
     if (m.start > cursor) tokens.push({ type: 'text', text: text.slice(cursor, m.start) });
     tokens.push({ type: 'hit', text: text.slice(m.start, m.end), match: m, mIndex: i });
     cursor = m.end;
   });
   if (cursor < n) tokens.push({ type: 'text', text: text.slice(cursor) });
 
-  // 评分
+  // 5) 评分
   let penalty = 0;
   const byLevel = { ban: 0, high: 0, warn: 0, qual: 0 };
-  rawMatches.forEach((m) => {
+  deduped.forEach((m) => {
     const lv = m.item.level || 'warn';
     byLevel[lv] = (byLevel[lv] || 0) + 1;
     penalty += LEVEL_WEIGHT[lv] || 4;
@@ -130,19 +119,25 @@ function scan(text, trackKey, customWords, enabledCats) {
     verdict = '未检出违禁词，可放心发布～';
   }
 
-  return { tokens, matches: rawMatches, score, grade, gradeColor, verdict, byLevel, penalty, trackKey };
+  return { tokens, matches: deduped, score, grade, gradeColor, verdict, byLevel, penalty, trackKey };
 }
 
-// 一键改写：把每个命中替换为其首个改写建议
+// 一键改写：把每个命中替换为其首个改写建议（从后往前替换，避免下标错位）
 function rewrite(text, trackKey, customWords, enabledCats) {
   const result = scan(text, trackKey, customWords, enabledCats);
-  let out = '';
-  result.tokens.forEach((t) => {
-    if (t.type === 'text') { out += t.text; return; }
-    const fixes = t.match.item.fix || [];
-    out += fixes[0] || t.text;
-  });
+  let out = text;
+  for (let i = result.matches.length - 1; i >= 0; i--) {
+    const m = result.matches[i];
+    const fixes = m.item.fix || [];
+    const f = fixes[0];
+    if (f) out = out.slice(0, m.start) + f + out.slice(m.end);
+  }
   return out;
 }
 
-Object.assign(window, { scan, rewrite, resetIndex, LEVEL_WEIGHT });
+if (typeof window !== 'undefined') {
+  Object.assign(window, { scan, rewrite, resetIndex, LEVEL_WEIGHT });
+}
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = { scan, rewrite, resetIndex, LEVEL_WEIGHT };
+}
