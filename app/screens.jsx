@@ -288,7 +288,17 @@ function AdminView() {
     <div>
       <div style={{ marginBottom: 16 }}>
         <h1 style={{ fontSize: 22, fontWeight: 800 }}>词库后台 <span style={{ fontSize: 13, fontWeight: 600, color: TS.sub }}>· 运营端</span></h1>
-        <p style={{ fontSize: 13, color: TS.sub, marginTop: 3 }}>违禁词库由运营在后台维护，前台检测实时调用 — 这页演示前后台如何打通</p>
+        <p style={{ fontSize: 13, color: TS.sub, marginTop: 3 }}>
+          违禁词库由运营在后台维护，前台检测实时调用 — 这页演示前后台如何打通
+          {window.LEXICON_META && (
+            <span style={{ marginLeft: 10, fontSize: 12, fontWeight: 700,
+              color: window.LEXICON_META.source === 'remote' ? '#16785A' : '#9C7400',
+              background: window.LEXICON_META.source === 'remote' ? '#E8F8F0' : '#FFF8E0',
+              borderRadius: 7, padding: '2px 8px' }}>
+              词库 v{window.LEXICON_META.version} · {window.LEXICON_META.source === 'remote' ? '远程加载' : '内置回退'}
+            </span>
+          )}
+        </p>
       </div>
 
       {/* 架构原理 */}

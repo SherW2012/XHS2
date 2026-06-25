@@ -143,7 +143,29 @@ function App() {
   );
 }
 
-ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+// —— 词库运行时加载：优先 data/lexicon.json（可在 CDN 上独立更新），
+//    失败则回退到 data.jsx 内嵌词库（保证 file:// 双击也能跑）——
+async function loadLexicon() {
+  try {
+    const res = await fetch('data/lexicon.json', { cache: 'no-cache' });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const data = await res.json();
+    if (data && Array.isArray(data.entries) && data.entries.length) {
+      window.LEXICON = data.entries;
+      window.LEXICON_META = { version: data.version, updated: data.updated, count: data.entries.length, source: 'remote' };
+      window.resetIndex && window.resetIndex();
+    }
+  } catch (e) {
+    // 回退：保留 data.jsx 内嵌 window.LEXICON
+    window.LEXICON_META = { version: '内置', updated: '—', count: (window.LEXICON || []).length, source: 'embedded' };
+    console.warn('[易闻] 远程词库加载失败，已回退内置词库：', e.message);
+  }
+}
+
+(async () => {
+  await loadLexicon();
+  ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+})();
 </script>
 </body>
 </html>
