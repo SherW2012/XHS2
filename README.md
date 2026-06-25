@@ -12,34 +12,43 @@
 
 ## 运行
 
-纯前端项目，无需构建。本地起一个静态服务器即可：
+基于 **Vite** 构建，本地不再依赖任何 CDN（React 等随产物打包）。
 
 ```bash
-# 任选其一
-python3 -m http.server 8080
-npx serve .
+npm install        # 首次安装依赖
+npm run dev        # 开发模式，热更新
+npm run build      # 生产构建，产物在 dist/
+npm run preview    # 预览构建产物
+npm run test:engine  # 跑检测内核的抗对抗评测
 ```
 
-然后浏览器打开 `http://localhost:8080`。直接双击 `index.html` 也能跑（用 CDN 加载 React/Babel，需联网）。
+开发模式默认 `http://localhost:5173`。构建产物 `dist/` 为纯静态文件，可直接传到对象存储 / CDN（`base` 已设为相对路径，支持任意子路径部署）。
 
 ## 目录
 
 ```
-index.html        # 入口：主题、导航、状态
+index.html        # 入口 HTML（仅挂载点 + 样式，加载 app/main.jsx）
+vite.config.mjs   # 构建配置（相对 base，React 插件）
 app/
-  data.jsx        # 违禁词词库（词条 + 出处 + 理由 + 赛道 + 案例 + 改写）
-  engine.jsx      # 检测引擎（扫描 / 别名归一 / 分级 / 评分 / 改写）
+  main.jsx        # 应用入口：挂 React/主题到 window，按序加载各模块后渲染
+  core.js         # 检测内核（纯逻辑）：归一化 + 压缩 + AC 自动机，抗对抗匹配
+  data.jsx        # 词库结构定义（LEVELS/TRACKS/CATS）+ 内嵌兜底词库 + 示例文案
+  engine.jsx      # 检测引擎（基于 core.js 的 scan / 分级 / 评分 / 改写）
   ui.jsx          # 共享 UI 基元、评分环、笔记预览
   workspace.jsx   # 高亮渲染、问题清单、出处详情卡
   modals.jsx      # AI 改写对比、发布预览弹窗
   detect.jsx      # 检测工作台组装
   screens.jsx     # 历史 / 我的词库 / 会员 / 词库后台
+public/
+  data/lexicon.json  # 结构化违禁词库（运行时加载，更新无需改代码）
+tests/
+  engine.eval.cjs    # 检测内核抗对抗样本评测（node 直接跑）
 ```
 
 ## 说明
 
-- 词库为演示用样本（约 21 条主词、含别名共 88 个匹配形），覆盖极限词/医疗功效/特殊宣称/站外导流/虚假诱导/数据造假六类。生产上线需接入完整词库与平台规则更新。
-- 检测为前端字符串匹配（演示逻辑），生产建议走后端词库引擎 + 语义模型。
-- 会员状态、历史记录、自定义词库存于浏览器 localStorage。
+- 词库现为 36 条主词、含别名共 208 个匹配形，覆盖极限词/医疗功效/特殊宣称/站外导流/虚假诱导/数据造假六类。结构已就绪，生产需继续扩充至数千条并接入平台规则更新。
+- 检测引擎已是抗对抗匹配：归一化（全角→半角/小写）+ 压缩（穿透夹字/夹符号/emoji/零宽/空格等绕审写法）+ Aho-Corasick 多模匹配。后续可叠加拼音/谐音与语义模型进一步提召回。
+- 会员状态、历史记录、自定义词库存于浏览器 localStorage（后续接账号体系后迁服务端）。
 
 > 检测结果仅供参考，不具有法律效力。部分标注的违禁词在持有相应资质或特定类目下可以使用，请结合自身情况判断。

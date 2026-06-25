@@ -169,9 +169,9 @@ function DetectView({ state, set, addHistory, customWords, goPricing }) {
         </C3>
       </div>
 
-      {modal === 'rewrite' && <RewriteModal result={result} body={body} title={title} track={track} customWords={customWords}
+      {modal === 'rewrite' && <window.RewriteModal result={result} body={body} title={title} track={track} customWords={customWords}
         onClose={() => edit({ modal: null })} onApply={oneClickRewrite} />}
-      {modal === 'preview' && <PreviewModal result={result} title={title} onClose={() => edit({ modal: null })}
+      {modal === 'preview' && <window.PreviewModal result={result} title={title} onClose={() => edit({ modal: null })}
         onRewrite={() => edit({ modal: 'rewrite' })} />}
 
       {state.toast && <div style={{ position: 'fixed', bottom: 28, left: '50%', transform: 'translateX(-50%)', zIndex: 60,
